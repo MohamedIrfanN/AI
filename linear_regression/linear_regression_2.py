@@ -12,20 +12,37 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.preprocessing import StandardScaler
 
 # 1. Load CSV
 df = pd.read_csv("student-mat.csv", sep=';')
 
-# 2. Select useful features
-X = df[['G1', 'G2', 'studytime', 'failures', 'absences']]
-y = df['G3']  # final grade
+y = df['G3']
+X = df.drop(columns=['G3'])
 
 print("Dataset shape:", df.shape)
 print(df.head())
 
+# 3. One-hot encode categorical variables
+X = pd.get_dummies(X, drop_first=True)
+
+weak_features = [
+    'Fjob_services','Fjob_other','schoolsup_yes','nursery_yes',
+    'reason_home','activities_yes','paid_yes','famsup_yes',
+    'Walc','internet_yes','sex_M'
+]
+
+# Only drop those that exist (safe drop)
+weak_features = [f for f in weak_features if f in X.columns]
+X_reduced = X.drop(columns=weak_features)
+
+# 4. Scale features
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X_reduced)
+
 # 3. Train-test split (80% train, 20% test)
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
+    X_scaled, y, test_size=0.2, random_state=20
 )
 
 # 4. Create and train model
@@ -50,3 +67,18 @@ plt.show()
 print("Coefficients:", model.coef_)
 print("Intercept:", model.intercept_)
 
+# 1. Raw row (no encoding)
+row3 = df.drop(columns=['G3']).iloc[4]
+
+# 2. One-hot encode + align to training columns
+row3 = pd.get_dummies(pd.DataFrame([row3]), drop_first=True)
+row3 = row3.reindex(columns=X_reduced.columns, fill_value=0)
+
+# 3. Scale
+row3_scaled = scaler.transform(row3)
+
+# 4. Predict
+predicted = model.predict(row3_scaled)[0]
+
+print("Actual G3:", y.iloc[2])
+print("Predicted G3:", round(predicted, 4))
